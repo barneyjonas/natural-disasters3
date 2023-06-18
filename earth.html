@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<head>
+  <title>Elements</title>
+
+  <link rel="icon" href="Icons/1x/TABZeichenfläche.png">
+  <link rel="stylesheet" href="Styles/body.css">
+  <link rel="stylesheet" href="http://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+  <script src="http://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+  <script src= "https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js" ></script>
+  <style type="text/css">
+  #map {
+      width: 950px;
+      height: 612px;
+      position: relative;
+      left: 0%
+  }
+      </style>
+  <meta charset="UTF-8" name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+</head>
+
+<body>
+
+  <div class="header">
+
+    <div class="header-left">
+      <div class="menu-box">
+        <div class="menu-animate-top"></div>
+        <a class="header-link" href="index.html">OVERVIEW</a>
+        <div class="menu-animate-bottom"></div>
+      </div>
+    </div>
+
+    <div class="header-middle">
+      <div class="middle-box">
+        <div class="menu-box">
+          <div class="menu-animate-top"></div>
+          <a class="header-link" href="water.html">WATER</a>
+          <div class="menu-animate-bottom"></div>
+        </div> 
+        <div class="menu-box">
+          <div class="menu-animate-top"></div>
+          <a class="header-link" href="fire.html">FIRE</a>
+          <div class="menu-animate-bottom"></div>
+        </div> 
+        <div class="menu-box">
+          <div class="menu-animate-top-active"></div>
+          <a class="header-link-active" href="earth.html">EARTH</a>
+          <div class="menu-animate-bottom-active"></div>
+        </div> 
+        <div class="menu-box">
+          <div class="menu-animate-top"></div>
+          <a class="header-link" href="air.html">AIR</a>
+          <div class="menu-animate-bottom"></div>
+        </div> 
+      </div>  
+    </div>
+
+    <div class="header-right">
+      <div class="menu-box">
+        <div class="menu-animate-top"></div>
+        <a class="header-link" href="blog.html">BLOG</a>
+        <div class="menu-animate-bottom"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="underline-page"></div>
+  <div class="content-box">
+    <h1>EARTH</h1>
+    <div class="subheader-page">EARTHQUAKES</div>
+    <div class="earth-image"></div>
+    <div class="mention-page">© BURAK KARA / GETTY IMAGES</div>
+    <p class="page-text">
+      Earthquakes are some of the most destructive natural disasters that humanity faces. 
+      They are caused by the sudden movement of tectonic plates, which can release enormous amounts of energy, 
+      leading to shaking and ground displacement. Earthquakes can have devastating effects on communities, 
+      causing significant damage to infrastructure, loss of life, and economic disruption.
+    </p>
+
+    <h4>Heatmap of earthquakes in Europe</h4>
+    <div id="map"></div>
+  
+    <script>
+      let map = L.map('map').setView([48.2, 16.4], 3.5);
+    
+      let layer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>'
+      });
+      layer.addTo(map);
+    
+      var floodPointsArray = [];
+    
+      fetch('https://raw.githubusercontent.com/barneyjonas/Natural-Disaster/main/nur_erdbeben_geojedon.geojson')
+        .then(response => response.json())
+        .then(json => {
+          json.features.forEach(function (feature) {
+            floodPointsArray.push(feature.geometry.coordinates);
+          });
+    
+          var minInjured = Infinity;
+          var maxInjured = 0;
+    
+          json.features.forEach(function (feature) {
+            var noInjured = feature.properties['No Injured'];
+            if (noInjured < minInjured) {
+              minInjured = noInjured;
+            }
+            if (noInjured > maxInjured) {
+              maxInjured = noInjured;
+            }
+          });
+    
+          var heatMapPoints = [];
+          var heatMapMarkers = [];
+    
+          json.features.forEach(function (feature) {
+            heatMapPoints.push([feature.geometry.coordinates[1], feature.geometry.coordinates[0]]);
+            var noInjured = feature.properties['No Injured'];
+            var size = calculateSize(noInjured, minInjured, maxInjured);
+            var iconSize = calculateIconSize(size);
+            var markerIcon = L.icon({
+              iconUrl: 'Icons/1x/punkt.png',
+              iconSize: iconSize,
+              iconAnchor: [iconSize[0] / 2, iconSize[1] / 2]
+            });
+            var popupContent = '<strong>Ort:</strong> ' + feature.properties['Ort'] + '<br>' +
+              '<strong>Year:</strong> ' + feature.properties['Year'] + '<br>' +
+              '<strong>No Injured:</strong> ' + noInjured + '<br>'
+            var marker = L.marker([feature.geometry.coordinates[1], feature.geometry.coordinates[0]], {
+              icon: markerIcon
+            })
+              .bindPopup(popupContent)
+              .addTo(map);
+            heatMapMarkers.push(marker);
+          });
+    
+          var heat = L.heatLayer(heatMapPoints, {
+            radius: 25,
+            minOpacity: 0.4,
+            gradient: { 0.4: 'brown', 0.5: 'green', 0.6: 'brown' }
+          }).addTo(map);
+    
+          heatMapMarkers.forEach(function (marker) {
+            marker.on('mouseover', function (e) {
+              this.openPopup();
+            });
+            marker.on('mouseout', function (e) {
+              this.closePopup();
+            });
+          });
+    
+          function calculateSize(value, minValue, maxValue) {
+            var range = maxValue - minValue;
+            var normalizedValue = (value - minValue) / range;
+            return normalizedValue;
+          }
+    
+          function calculateIconSize(normalizedSize) {
+            var minSize = 4;
+            var maxSize = 10;
+            var sizeRange = maxSize - minSize;
+            var iconSize = minSize + normalizedSize * sizeRange;
+            return [iconSize, iconSize];
+          }
+    
+        })
+        .catch(error => {
+          console.error('Error fetching GeoJSON data:', error);
+        });
+    
+    </script>
+    
+
+    <h4>The Causes of Earthquakes</h4>
+    <p class="page-text">
+      Earthquakes are caused by the sudden release of energy in the Earth's crust. 
+      This energy is released when tectonic plates, which make up the Earth's crust, move and collide. 
+      The movement of these plates can cause shaking and ground displacement, leading to earthquakes. 
+      Earthquakes can occur anywhere in the world but are most common in regions where tectonic plates meet, such as the Pacific Rim.
+    </p>
+
+    <h4>The Effects of Earthquakes on Humanity</h4>
+    <p class="page-text">
+      Earthquakes can have significant impacts on human life and property. 
+      One of the most obvious effects of earthquakes is the destruction of buildings and other infrastructure. 
+      Earthquake shaking can cause buildings to collapse or become unstable, leading to significant financial losses. 
+      Earthquakes can also damage roads, bridges, and other infrastructure, making it difficult for people to travel and transport goods.
+    </p>
+    <p class="page-text">
+      Earthquakes can also lead to the loss of life. In extreme cases, earthquakes can cause entire communities to be destroyed or buried by rubble. 
+      Even in less severe cases, earthquakes can lead to injuries and other accidents. Earthquakes can also create psychological distress, 
+      as people may be displaced from their homes and communities.
+    </p>
+    <p class="page-text">
+      The economic impact of earthquakes can also be significant, as businesses may be forced to close and jobs may be lost. 
+      In addition to the immediate effects of earthquakes, there can also be long-term consequences. 
+      Earthquakes can lead to the displacement of people from their homes and communities, 
+      causing psychological distress and making it difficult to access basic services such as healthcare and education.
+    </p>
+
+    <h4>Strategies to Mitigate the Destructive Effects of Earthquakes</h4>
+    <p class="page-text">
+      Mitigating the effects of earthquakes requires a multi-pronged approach. 
+      One of the most effective ways to prevent earthquakes is to improve building codes and standards, 
+      which can help to ensure that buildings are resistant to earthquake shaking. 
+      Governments can also implement measures to improve infrastructure such as bridges and roads, making them more resilient to earthquake shaking.
+    </p>
+    <p class="page-text">
+      Improving early warning systems and emergency response plans can also help to reduce the risk of damage and loss of life from earthquakes. 
+      This includes developing earthquake early warning systems that can provide people with advance warning of an impending earthquake. 
+      Governments can also implement emergency response plans to help people evacuate quickly and safely in the event of an earthquake.
+    </p>
+    <p class="page-text">
+      Finally, communities can take steps to prepare for the effects of earthquakes. 
+      This includes creating emergency kits with food, water, and other supplies, 
+      as well as developing evacuation plans and earthquake-proofing buildings.
+    </p>
+
+    <h4>Conclusion</h4>
+    <p class="page-text">
+      Floods are a significant challenge for governments and communities worldwide. 
+      While we have made strides in mitigating the effects of floods, they remain a significant threat to human life and property. 
+      By working together, governments and communities can help to prevent and mitigate the effects of floods, 
+      protecting people and communities from this destructive natural disaster.
+    </p>
+  </div>  
+  
+
+
+</body>

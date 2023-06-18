@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<head>
+  <title>Elements</title>
+
+  <link rel="icon" href="Icons/1x/TABZeichenfläche.png">
+  <link rel="stylesheet" href="Styles/body.css">
+  <link rel="stylesheet" href="http://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+  <script src="http://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+  <script src= "https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js" ></script>
+  <style type="text/css">
+#map {
+    width: 950px;
+    height: 612px;
+    position: relative;
+    left: 0%
+}
+      </style>
+  <meta charset="UTF-8" name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+</head>
+
+<body>
+
+  <div class="header">
+
+    <div class="header-left">
+      <div class="menu-box">
+        <div class="menu-animate-top"></div>
+        <a class="header-link" href="index.html">OVERVIEW</a>
+        <div class="menu-animate-bottom"></div>
+      </div>
+    </div>
+
+    <div class="header-middle">
+      <div class="middle-box">
+        <div class="menu-box">
+          <div class="menu-animate-top"></div>
+          <a class="header-link" href="water.html">WATER</a>
+          <div class="menu-animate-bottom"></div>
+        </div> 
+        <div class="menu-box">
+          <div class="menu-animate-top"></div>
+          <a class="header-link" href="fire.html">FIRE</a>
+          <div class="menu-animate-bottom"></div>
+        </div> 
+        <div class="menu-box">
+          <div class="menu-animate-top"></div>
+          <a class="header-link" href="earth.html">EARTH</a>
+          <div class="menu-animate-bottom"></div>
+        </div> 
+        <div class="menu-box">
+          <div class="menu-animate-top-active"></div>
+          <a class="header-link-active" href="air.html">AIR</a>
+          <div class="menu-animate-bottom-active"></div>
+        </div> 
+      </div>  
+    </div>
+
+    <div class="header-right">
+      <div class="menu-box">
+        <div class="menu-animate-top"></div>
+        <a class="header-link" href="blog.html">BLOG</a>
+        <div class="menu-animate-bottom"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="underline-page"></div>
+  <div class="content-box">
+    <h1>AIR</h1>
+    <div class="subheader-page">STORMS</div>
+    <div class="air-image"></div>
+    <div class="mention-page">© NASA</div>
+    <p class="page-text">
+      Storms are natural phenomena characterized by strong winds, heavy rain, thunder, and lightning. 
+      They can occur in any part of the world, at any time of the year, and can range in severity from mild to catastrophic. 
+      Storms are caused by a variety of factors, including changes in atmospheric pressure, temperature, and humidity.
+    </p>
+
+    <h4>Heatmap of storms in Europe</h4>
+
+    <div id="map"></div>
+  
+    <script>
+      let map = L.map('map').setView([48.2, 16.4], 3.5);
+    
+      let layer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>'
+      });
+      layer.addTo(map);
+    
+      // You can start working with your map here
+    
+      var floodPointsArray = [];
+    
+      fetch('https://raw.githubusercontent.com/barneyjonas/Natural-Disaster/main/storm_points.geojson', {
+          method: 'GET'
+      })
+          .then(response => response.json())
+          .then(json => {
+              json.features.forEach(function(feature) {
+                  floodPointsArray.push(feature.geometry.coordinates)
+              });
+    
+              var minDeaths = Infinity;
+              var maxDeaths = 0;
+    
+              json.features.forEach(function(feature) {
+                var totalDeaths = feature.properties['Total Deaths'];
+                if (totalDeaths < minDeaths) {
+                  minDeaths = totalDeaths;
+                }
+                if (totalDeaths > maxDeaths) {
+                  maxDeaths = totalDeaths;
+                }
+              });
+    
+              var heatMapPoints = [];
+              var heatMapMarkers = [];
+    
+              json.features.forEach(function(feature) {
+                heatMapPoints.push([feature.geometry.coordinates[1], feature.geometry.coordinates[0]]);
+                var totalDeaths = feature.properties['Total Deaths'];
+                var size = calculateSize(totalDeaths, minDeaths, maxDeaths);
+                var iconSize = calculateIconSize(size);
+                var markerIcon = L.icon({
+                    iconUrl: 'Icons/1x/punkt.png',
+                    iconSize: iconSize,
+                    iconAnchor: [iconSize[0] / 2, iconSize[1] / 2]
+                });
+                var popupContent = '<strong>Ort:</strong> ' + feature.properties['Ort'] + '<br>' +
+                                    '<strong>Year:</strong> ' + feature.properties['Year'] + '<br>' +
+                                    '<strong>No Injured:</strong> ' + feature.properties['No Injured'] + '<br>' +
+                                    '<strong>Total Deaths:</strong> ' + totalDeaths;
+                var marker = L.marker([feature.geometry.coordinates[1], feature.geometry.coordinates[0]], {
+                    icon: markerIcon
+                })
+                    .bindPopup(popupContent)
+                    .addTo(map);
+                heatMapMarkers.push(marker);
+            });
+    
+            var heat = L.heatLayer(heatMapPoints, {
+                  radius: 25,
+                  minOpacity: 0.4,
+                  gradient: {0.4: 'grey', 0.5: 'lightblue', 0.6: 'grey'}
+              }).addTo(map);
+    
+            heatMapMarkers.forEach(function(marker) {
+                marker.on('mouseover', function(e) {
+                    this.openPopup();
+                });
+                marker.on('mouseout', function(e) {
+                    this.closePopup();
+                });
+            });
+    
+            function calculateSize(value, minValue, maxValue) {
+                var range = maxValue - minValue;
+                var normalizedValue = (value - minValue) / range;
+                return normalizedValue;
+            }
+    
+            function calculateIconSize(normalizedSize) {
+                var minSize = 4;
+                var maxSize = 10;
+                var sizeRange = maxSize - minSize;
+                var iconSize = minSize + normalizedSize * sizeRange;
+                return [iconSize, iconSize];
+            }
+    
+          })
+          .catch(error => {
+              console.error('Error fetching GeoJSON data:', error);
+          });
+    
+    </script>
+    
+  
+  
+
+    <h4>The Causes of Storms</h4>
+    <p class="page-text">
+      Storms are often caused by the interaction of different air masses with different temperatures and humidity levels. 
+      As these air masses collide, they create instability in the atmosphere, which can lead to the formation of storms. 
+      Other factors that can contribute to the formation of storms include changes in atmospheric pressure and temperature, 
+      the presence of moisture in the air, and the influence of external weather patterns.
+    </p>
+
+    <h4>Types of Storms</h4>
+    <p class="page-text">
+      There are several different types of storms, each with its own unique characteristics and causes. 
+      Some of the most common types of storms include thunderstorms, tornadoes, hurricanes, and blizzards.
+    </p>
+    <p class="page-text">
+      Thunderstorms are characterized by the presence of lightning and thunder, and often produce heavy rain, strong winds, and hail. 
+      They can be caused by changes in atmospheric pressure and temperature, and are most common in warm and humid environments.
+    </p>
+    <p class="page-text">
+      Tornadoes are characterized by a rotating column of air that extends from a thunderstorm to the ground. 
+      They are often accompanied by strong winds, heavy rain, and hail, and can cause significant damage to buildings and infrastructure. 
+      Tornadoes are most common in regions with high levels of atmospheric instability and wind shear.
+    </p>
+    <p class="page-text">
+      Hurricanes, also known as tropical cyclones, are large and powerful storms that form over warm ocean waters. 
+      They are characterized by high winds, heavy rain, and storm surges, and can cause catastrophic damage to coastal regions. 
+      Hurricanes are most common in regions near the equator, where warm ocean waters are prevalent.
+    </p>
+    <p class="page-text">
+      Blizzards are characterized by heavy snowfall, strong winds, and freezing temperatures. 
+      They can cause significant disruption to transportation and infrastructure, and can be deadly for people and animals caught in the storm. 
+      Blizzards are most common in regions with cold and dry air, such as the Arctic and Antarctic.
+    </p>
+
+    <h4>The Effects of Storms on Humanity</h4>
+    <p class="page-text">
+      Storms can have significant impacts on human life and property. They can cause damage to buildings and other infrastructure, 
+      disrupt transportation and communication networks, and lead to power outages and water shortages. 
+      In extreme cases, storms can cause loss of life, displacement of people, and economic disruption.
+    </p>
+    <p class="page-text">
+      The economic impact of storms can be significant, as businesses may be forced to close and jobs may be lost. 
+      In addition to the immediate effects of storms, there can also be long-term consequences. 
+      For example, storms can lead to soil erosion, damage to crops and other agricultural resources, and the spread of diseases.
+    </p>
+
+    <h4>Preventing and Mitigating the Effects of Storms</h4>
+    <p class="page-text">
+      Preventing and mitigating the effects of storms requires a multi-pronged approach. 
+      One of the most effective ways to prevent damage from storms is to improve building codes and standards, 
+      which can help to ensure that buildings are resistant to strong winds and heavy rain. 
+      Governments can also implement measures to improve infrastructure such as roads and bridges, making them more resilient to storm damage.
+    </p>
+    <p class="page-text">
+      Improving early warning systems and emergency response plans can also help to reduce the risk of damage and loss of life from storms. 
+      This includes developing storm warning systems that can provide people with advance warning of an impending storm. 
+      Governments can also implement emergency response plans to help people evacuate quickly and safely in the event of a storm.
+    </p>
+    <p class="page-text">
+      Finally, communities can take steps to prepare for the effects of storms. 
+      This includes creating emergency kits with food, water, and other supplies, 
+      as well as developing evacuation plans and taking measures to protect buildings from storm damage.
+    </p>
+
+    <h4>Conclusion</h4>
+    <p class="page-text">
+      In conclusion, storms are a powerful natural phenomenon that can have devastating effects on communities and the environment. 
+      While we cannot prevent storms from occurring, we can take steps to mitigate their impact. 
+      This includes improving early warning systems and emergency response plans, developing more resilient infrastructure, 
+      and promoting community preparedness. By working together and taking these steps, 
+      we can better protect ourselves and our communities from the destructive power of storms.
+    </p>
+  </div>  
+
+</body>

@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<head>
+  <title>Elements</title>
+
+  <link rel="icon" href="Icons/1x/TABZeichenfläche.png">
+  <link rel="stylesheet" href="Styles/body.css">
+  <link rel="stylesheet" href="http://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+    <script src="http://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src= "https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js" ></script>
+    <style type="text/css">
+  #map {
+      width: 950px;
+      height: 612px;
+      position: relative;
+      left: 0%
+  }
+        </style>
+  <meta charset="UTF-8" name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+</head>
+
+<body>
+
+  <div class="header">
+
+    <div class="header-left">
+      <div class="menu-box">
+        <div class="menu-animate-top"></div>
+        <a class="header-link" href="index.html">OVERVIEW</a>
+        <div class="menu-animate-bottom"></div>
+      </div>
+    </div>
+
+    <div class="header-middle">
+      <div class="middle-box">
+        <div class="menu-box">
+          <div class="menu-animate-top-active"></div>
+          <a class="header-link-active" href="water.html">WATER</a>
+          <div class="menu-animate-bottom-active"></div>
+        </div> 
+        <div class="menu-box">
+          <div class="menu-animate-top"></div>
+          <a class="header-link" href="fire.html">FIRE</a>
+          <div class="menu-animate-bottom"></div>
+        </div> 
+        <div class="menu-box">
+          <div class="menu-animate-top"></div>
+          <a class="header-link" href="earth.html">EARTH</a>
+          <div class="menu-animate-bottom"></div>
+        </div> 
+        <div class="menu-box">
+          <div class="menu-animate-top"></div>
+          <a class="header-link" href="air.html">AIR</a>
+          <div class="menu-animate-bottom"></div>
+        </div> 
+      </div>  
+    </div>
+
+    <div class="header-right">
+      <div class="menu-box">
+        <div class="menu-animate-top"></div>
+        <a class="header-link" href="blog.html">BLOG</a>
+        <div class="menu-animate-bottom"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="underline-page"></div>
+  <div class="content-box">
+    <h1>WATER</h1>
+    <div class="subheader-page">FLOODS</div>
+    <div class="water-image"></div>
+    <div class="mention-page">© AP</div>
+    
+    <p class="page-text">
+      Floods are one of the most destructive natural disasters that humanity faces. 
+      From the ancient times, floods have wreaked havoc on communities, causing widespread devastation and loss of life. 
+      While we have made strides in mitigating the effects of floods, 
+      they remain a significant challenge for governments and communities worldwide.
+    </p>
+
+    <h4>Heatmap of floods in Europe</h4>
+
+    <div id="map"></div>
+  
+    <script>
+
+        let map = L.map('map').setView([48.2, 16.4], 3.5);
+  
+        let layer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>'
+        });
+        layer.addTo(map);
+  
+        // You can start working with your map here
+  
+        var floodPointsArray = [];
+  
+        fetch('natural-disasters2-main/JS/floods_europe.geojson',{
+            method: 'GET'
+            })
+            .then(response => response.json())
+          .then(json => {
+              json.features.forEach(function(feature) {
+                  floodPointsArray.push(feature.geometry.coordinates)
+              });
+    
+              var minDeaths = Infinity;
+              var maxDeaths = 0;
+    
+              json.features.forEach(function(feature) {
+                var totalDeaths = feature.properties['Total Deaths'];
+                if (totalDeaths < minDeaths) {
+                  minDeaths = totalDeaths;
+                }
+                if (totalDeaths > maxDeaths) {
+                  maxDeaths = totalDeaths;
+                }
+              });
+    
+              var heatMapPoints = [];
+              var heatMapMarkers = [];
+    
+              json.features.forEach(function(feature) {
+                heatMapPoints.push([feature.geometry.coordinates[1], feature.geometry.coordinates[0]]);
+                var totalDeaths = feature.properties['Total Deaths'];
+                var size = calculateSize(totalDeaths, minDeaths, maxDeaths);
+                var iconSize = calculateIconSize(size);
+                var markerIcon = L.icon({
+                    iconUrl: 'Icons/1x/punkt.png',
+                    iconSize: iconSize,
+                    iconAnchor: [iconSize[0] / 2, iconSize[1] / 2]
+                });
+                var popupContent = '<strong>Ort:</strong> ' + feature.properties['Ort'] + '<br>' +
+                                    '<strong>Year:</strong> ' + feature.properties['Year'] + '<br>' +
+                                    '<strong>No Injured:</strong> ' + feature.properties['No Injured'] + '<br>' +
+                                    '<strong>Total Deaths:</strong> ' + totalDeaths;
+                var marker = L.marker([feature.geometry.coordinates[1], feature.geometry.coordinates[0]], {
+                    icon: markerIcon
+                })
+                    .bindPopup(popupContent)
+                    .addTo(map);
+                heatMapMarkers.push(marker);
+            });
+            
+            var heat = L.heatLayer(heatMapPoints, {
+                radius: 25,
+                minOpacity: 0.4,
+                gradient: {0.4: 'blue', 0.5: 'lightblue', 0.6: 'blue'}
+            }).addTo(map);
+  
+            heatMapMarkers.forEach(function(marker) {
+                marker.on('mouseover', function(e) {
+                    this.openPopup();
+                });
+                marker.on('mouseout', function(e) {
+                    this.closePopup();
+                });
+            });
+    
+            function calculateSize(value, minValue, maxValue) {
+                var range = maxValue - minValue;
+                var normalizedValue = (value - minValue) / range;
+                return normalizedValue;
+            }
+    
+            function calculateIconSize(normalizedSize) {
+                var minSize = 4;
+                var maxSize = 10;
+                var sizeRange = maxSize - minSize;
+                var iconSize = minSize + normalizedSize * sizeRange;
+                return [iconSize, iconSize];
+            }
+    
+          })
+          .catch(error => {
+              console.error('Error fetching GeoJSON data:', error);
+          });
+    
+    </script>
+
+    <h4>The Causes of Floods</h4>
+    <p class="page-text">Floods can be caused by both natural and human factors. In some cases, 
+      floods can be attributed to heavy rainfall, melting snow and ice, 
+      or sudden releases of water from dams or levees. However, 
+      human activities such as deforestation and urbanization can also contribute to flooding.
+    </p>
+    <p class="page-text">
+      Deforestation can be a significant cause of floods, as it reduces the soil's ability to absorb water. 
+      Trees and other vegetation help to hold water in the soil, preventing runoff and reducing the risk of floods. 
+      When forests are cleared, the soil becomes compacted and less permeable, leading to increased runoff.
+    </p>
+    <p class="page-text">
+      Urbanization also contributes to the risk of floods. 
+      When natural areas are converted to concrete and asphalt, the ground becomes less permeable, 
+      and water cannot seep into the soil. This can cause water to accumulate in low-lying areas, leading to floods.
+    </p>
+
+    <h4>The Effects of Floods on Humanity</h4>
+    <p class="page-text">
+      Floods can have significant impacts on human life and property. 
+      One of the most obvious effects of floods is the destruction of homes and buildings. 
+      Floodwaters can damage or destroy structures, leading to significant financial losses. 
+      Floods can also cause damage to roads, bridges, and other infrastructure, making it difficult for people to travel and transport goods.
+    </p>
+    <p class="page-text">
+      Floods can also lead to the loss of life. In extreme cases, floods can cause entire communities to be swept away by floodwaters. 
+      Even in less severe cases, floods can lead to drowning and other accidents. Floods can also create health risks, 
+      as contaminated water can spread diseases and infections.
+    </p>
+    <p class="page-text">
+      The economic impact of floods can also be significant, as businesses may be forced to close and jobs may be lost. 
+      In addition to the immediate effects of floods, there can also be long-term consequences. 
+      Flooding can lead to the displacement of people from their homes and communities, 
+      causing psychological distress and making it difficult to access basic services such as healthcare and education.
+    </p>
+
+    <h4>Preventing and Mitigating the Effects of Floods</h4>
+    <p class="page-text">
+      Preventing and mitigating the effects of floods requires a multi-pronged approach. 
+      One of the most effective ways to prevent floods is to protect natural areas and promote sustainable land use practices. 
+      This includes preserving forests and wetlands, which can help to absorb water and reduce the risk of flooding. 
+      Governments and communities can also implement measures to reduce the amount of runoff from urban areas, 
+      such as building green infrastructure like rain gardens and permeable pavement.
+    </p>
+    <p class="page-text">
+      Improving infrastructure such as dams and levees can also help to reduce the risk of catastrophic failure and prevent flooding in areas downstream. 
+      Governments can also implement early warning systems and emergency response plans to help people evacuate quickly in the event of a flood.
+    </p>
+    <p class="page-text">
+      Finally, communities can take steps to prepare for the effects of floods. This includes creating emergency kits with food, water, 
+      and other supplies, as well as developing evacuation plans and flood-proofing buildings.
+    </p>
+
+    <h4>Conclusion</h4>
+    <p class="page-text">
+      Floods are a significant challenge for governments and communities worldwide. 
+      While we have made strides in mitigating the effects of floods, they remain a significant threat to human life and property. 
+      By working together, governments and communities can help to prevent and mitigate the effects of floods, 
+      protecting people and communities from this destructive natural disaster.
+    </p>
+  </div>  
+
+
+
+
+</body>

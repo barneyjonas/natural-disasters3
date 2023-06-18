@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<head>
+  <title>Elements</title>
+
+  <link rel="icon" href="Icons/1x/TABZeichenfläche.png">
+  <link rel="stylesheet" href="Styles/style.css">
+  <link rel="stylesheet" href="http://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+  <script src="http://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+  <script src= "https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js" ></script>
+  <style type="text/css">
+#map {
+    width: 950px;
+    height: 612px;
+    position: relative;
+    left: 0%
+}
+      </style>
+  <meta charset="UTF-8" name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+</head>
+
+<body>
+
+  <div class="header">
+
+    <div class="header-left">
+      <div class="menu-box">
+        <div class="menu-animate-top"></div>
+        <a class="header-link" href="index.html">OVERVIEW</a>
+        <div class="menu-animate-bottom"></div>
+      </div>
+    </div>
+
+    <div class="header-middle">
+      <div class="middle-box">
+        <div class="menu-box">
+          <div class="menu-animate-top"></div>
+          <a class="header-link" href="water.html">WATER</a>
+          <div class="menu-animate-bottom"></div>
+        </div> 
+        <div class="menu-box">
+          <div class="menu-animate-top-active"></div>
+          <a class="header-link-active" href="fire.html">FIRE</a>
+          <div class="menu-animate-bottom-active"></div>
+        </div> 
+        <div class="menu-box">
+          <div class="menu-animate-top"></div>
+          <a class="header-link" href="earth.html">EARTH</a>
+          <div class="menu-animate-bottom"></div>
+        </div> 
+        <div class="menu-box">
+          <div class="menu-animate-top"></div>
+          <a class="header-link" href="air.html">AIR</a>
+          <div class="menu-animate-bottom"></div>
+        </div> 
+      </div>  
+    </div>
+
+    <div class="header-right">
+      <div class="menu-box">
+        <div class="menu-animate-top"></div>
+        <a class="header-link" href="blog.html">BLOG</a>
+        <div class="menu-animate-bottom"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="content-box">
+    <h1>FIRE</h1>
+    <div class="subheader-page">WILDFIRES</div>
+    <div class="fire-image"></div>
+    <div class="mention-page">© JULIA PETRENKO / GREENPEACE / REUTERS</div>
+
+    <h4>Heatmap of wildfires in Europe</h4>
+
+    <div id="map"></div>
+  
+    <script>
+
+        let map = L.map('map').setView([48.2, 16.4], 3.5);
+  
+        let layer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>'
+        });
+        layer.addTo(map);
+  
+        // You can start working with your map here
+  
+        var floodPointsArray = [];
+  
+        fetch('https://raw.githubusercontent.com/barneyjonas/Natural-Disaster/main/wildfire_geojson.geojson',{
+            method: 'GET'
+            })
+            .then(response => response.json())
+          .then(json => {
+              json.features.forEach(function(feature) {
+                  floodPointsArray.push(feature.geometry.coordinates)
+              });
+    
+              var minDeaths = Infinity;
+              var maxDeaths = 0;
+    
+              json.features.forEach(function(feature) {
+                var totalDeaths = feature.properties['Total Deaths'];
+                if (totalDeaths < minDeaths) {
+                  minDeaths = totalDeaths;
+                }
+                if (totalDeaths > maxDeaths) {
+                  maxDeaths = totalDeaths;
+                }
+              });
+    
+              var heatMapPoints = [];
+              var heatMapMarkers = [];
+    
+              json.features.forEach(function(feature) {
+                heatMapPoints.push([feature.geometry.coordinates[1], feature.geometry.coordinates[0]]);
+                var totalDeaths = feature.properties['Total Deaths'];
+                var size = calculateSize(totalDeaths, minDeaths, maxDeaths);
+                var iconSize = calculateIconSize(size);
+                var markerIcon = L.icon({
+                    iconUrl: 'Icons/1x/punkt.png',
+                    iconSize: iconSize,
+                    iconAnchor: [iconSize[0] / 2, iconSize[1] / 2]
+                });
+                var popupContent = '<strong>Ort:</strong> ' + feature.properties['Ort'] + '<br>' +
+                                    '<strong>Year:</strong> ' + feature.properties['Year'] + '<br>' +
+                                    '<strong>No Injured:</strong> ' + feature.properties['No Injured'] + '<br>' +
+                                    '<strong>Total Deaths:</strong> ' + totalDeaths;
+                var marker = L.marker([feature.geometry.coordinates[1], feature.geometry.coordinates[0]], {
+                    icon: markerIcon
+                })
+                    .bindPopup(popupContent)
+                    .addTo(map);
+                heatMapMarkers.push(marker);
+            });
+            
+            var heat = L.heatLayer(heatMapPoints, {
+                radius: 25,
+                minOpacity: 0.4,
+                gradient: {0.4: 'red', 0.5: 'orange', 0.6: 'red'}
+            }).addTo(map);
+  
+            heatMapMarkers.forEach(function(marker) {
+                marker.on('mouseover', function(e) {
+                    this.openPopup();
+                });
+                marker.on('mouseout', function(e) {
+                    this.closePopup();
+                });
+            });
+    
+            function calculateSize(value, minValue, maxValue) {
+                var range = maxValue - minValue;
+                var normalizedValue = (value - minValue) / range;
+                return normalizedValue;
+            }
+    
+            function calculateIconSize(normalizedSize) {
+                var minSize = 4;
+                var maxSize = 10;
+                var sizeRange = maxSize - minSize;
+                var iconSize = minSize + normalizedSize * sizeRange;
+                return [iconSize, iconSize];
+            }
+    
+          })
+          .catch(error => {
+              console.error('Error fetching GeoJSON data:', error);
+          });
+    
+    </script>
+
+
+    <h4>The Causes of Wildires</h4>
+    <p class="page-text">
+      Wildfires can be caused by both natural and human factors. Lightning strikes are one of the most common natural causes of forest fires. 
+      Human activities, such as campfires, cigarette smoking, and fireworks, can also spark forest fires. In addition, 
+      drought conditions can increase the likelihood and severity of forest fires.
+    </p>
+
+    <h4>The Effects of Wildires on Ecosystems</h4>
+    <p class="page-text">
+      Forest fires can have significant impacts on ecosystems, including the destruction of habitats and the loss of biodiversity. 
+      Fires can destroy entire forests, kill wildlife, and alter ecosystems for decades. 
+      Forest fires also release large amounts of carbon dioxide into the atmosphere, contributing to climate change.
+    </p>
+
+    <h4>The Effects of Wildires on Communities</h4>
+    <p class="page-text">
+      Wildires can also have significant impacts on human communities, particularly those living near forests. 
+      Fires can destroy homes, businesses, and other infrastructure, leading to significant financial losses. 
+      Smoke and ash from forest fires can also harm human health, particularly for those with respiratory problems.
+    </p>
+
+    <h4>Preventing and mitigating the Effects of Wildires</h4>
+    <p class="page-text">
+      Preventing and mitigating the effects of wildires requires a multi-pronged approach. 
+      Governments and individuals can take steps to reduce the risk of wildires, 
+      including implementing fire safety regulations, educating people on the dangers of forest fires, 
+      and reducing human activities that can cause forest fires.
+    </p>
+    <p class="page-text">
+      Effective firefighting and management strategies can also help to mitigate the effects of forest fires. 
+      This includes developing early warning systems, creating firebreaks, and using controlled burns to reduce fuel loads.
+    </p>
+
+    <h4>Conclusion</h4>
+    <p class="page-text">
+      Wildfires are a significant challenge for ecosystems and communities worldwide. 
+      While preventing and mitigating forest fires is complex, there are measures that individuals, 
+      communities, and governments can take to reduce the risks and mitigate the effects. 
+      By working together, we can protect our forests and communities from this destructive natural disaster.
+    </p>
+  </div>  
+
+</body>
